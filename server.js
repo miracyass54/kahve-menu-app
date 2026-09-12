@@ -10,6 +10,24 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DB_FILE = path.join(__dirname, "orders.json");
 
 // ---------------------------------------------------------------------------
+// MUTFAK ŞİFRESİ — bu iki değeri kendi şifrenizle değiştirin.
+// Değiştirdikten sonra git add / commit / push yapınca Render otomatik günceller.
+// ---------------------------------------------------------------------------
+const ADMIN_USER = "kahve";
+const ADMIN_PASS = "duragi2026";
+
+function requireAdminAuth(req, res, next) {
+  const auth = req.headers.authorization;
+  if (auth && auth.startsWith("Basic ")) {
+    const decoded = Buffer.from(auth.slice(6), "base64").toString();
+    const [user, pass] = decoded.split(":");
+    if (user === ADMIN_USER && pass === ADMIN_PASS) return next();
+  }
+  res.set("WWW-Authenticate", 'Basic realm="Kahve Duragi Mutfak"');
+  res.status(401).send("Yetkisiz erişim");
+}
+
+// ---------------------------------------------------------------------------
 // MENÜ — burası artık backend'de, yani menüde değişiklik yaptığınızda tüm
 // müşteriler ve mutfak ekranı aynı veriyi görür.
 // ---------------------------------------------------------------------------
@@ -77,6 +95,12 @@ let nextId = orders.reduce((max, o) => Math.max(max, o.id), 0) + 1;
 
 const app = express();
 app.use(express.json());
+
+// admin.html'i statik dosya sunumundan ÖNCE, şifre korumalı olarak tanımlıyoruz
+app.get("/admin.html", requireAdminAuth, (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "admin.html"));
+});
+
 app.use(express.static(path.join(__dirname, "public")));
 
 const server = http.createServer(app);
@@ -99,7 +123,7 @@ app.get("/api/qrcode/:tableId", async (req, res) => {
 });
 
 // --- Siparişler --------------------------------------------------------------
-app.get("/api/orders", (req, res) => {
+app.get("/api/orders", requireAdminAuth, (req, res) => {
   res.json(orders.filter((o) => o.status !== "Servis Edildi"));
 });
 
@@ -136,7 +160,7 @@ app.post("/api/orders", (req, res) => {
   res.json(order);
 });
 
-app.patch("/api/orders/:id", (req, res) => {
+app.patch("/api/orders/:id", requireAdminAuth, (req, res) => {
   const id = Number(req.params.id);
   const { status } = req.body;
   const order = orders.find((o) => o.id === id);
