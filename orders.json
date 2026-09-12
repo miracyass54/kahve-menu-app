@@ -1,0 +1,74 @@
+[
+  {
+    "id": 1,
+    "tableId": 1,
+    "lines": [
+      {
+        "itemId": "k1",
+        "name": "Filtre Kahve",
+        "price": 90,
+        "qty": 1
+      },
+      {
+        "itemId": "k3",
+        "name": "Karamelli Latte",
+        "price": 130,
+        "qty": 1
+      },
+      {
+        "itemId": "t1",
+        "name": "Cheesecake",
+        "price": 140,
+        "qty": 1
+      },
+      {
+        "itemId": "t3",
+        "name": "Sufle",
+        "price": 150,
+        "qty": 1
+      },
+      {
+        "itemId": "a3",
+        "name": "Kruvasan",
+        "price": 85,
+        "qty": 1
+      }
+    ],
+    "total": 595,
+    "status": "Servis Edildi",
+    "createdAt": "2026-09-12T14:24:16.023Z"
+  },
+  {
+    "id": 2,
+    "tableId": 2,
+    "lines": [
+      {
+        "itemId": "k1",
+        "name": "Filtre Kahve",
+        "price": 90,
+        "qty": 7
+      },
+      {
+        "itemId": "t1",
+        "name": "Cheesecake",
+        "price": 140,
+        "qty": 5
+      },
+      {
+        "itemId": "t3",
+        "name": "Sufle",
+        "price": 150,
+        "qty": 2
+      },
+      {
+        "itemId": "a2",
+        "name": "Simit & Peynir",
+        "price": 80,
+        "qty": 4
+      }
+    ],
+    "total": 1950,
+    "status": "Servis Edildi",
+    "createdAt": "2026-09-12T14:24:40.398Z"
+  }
+]

@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Kahve Durağı — Masa QR Kodları</title>
+<link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div class="landing">
+    <div class="landing-head">
+      <p class="eyebrow">Kahve Durağı</p>
+      <h1 class="serif">Masadaki QR'ı okutun, menü elinizde.</h1>
+      <p>
+        Bu sayfadaki her kart, o masaya basılacak gerçek QR kodu. Aynı wifi'ye
+        bağlı bir telefon okuttuğunda doğrudan o masanın sipariş ekranına
+        düşer.
+      </p>
+    </div>
+    <div class="grid" id="table-grid">Yükleniyor…</div>
+    <a class="admin-link" href="/admin.html">Mutfak / yönetim panelini aç →</a>
+  </div>
+
+  <script>
+    async function load() {
+      const tables = await fetch('/api/tables').then(r => r.json());
+      const grid = document.getElementById('table-grid');
+      grid.innerHTML = '';
+      for (const t of tables) {
+        const { url, dataUrl } = await fetch(`/api/qrcode/${t.id}`).then(r => r.json());
+        const card = document.createElement('div');
+        card.className = 'qr-card';
+        card.innerHTML = `
+          <img src="${dataUrl}" alt="${t.name} QR kodu" />
+          <h3>${t.name}</h3>
+          <p class="url">${url}</p>
+          <a class="btn btn-brass" style="display:block;text-decoration:none;box-sizing:border-box" href="/menu.html?masa=${t.id}">QR'ı test et</a>
+        `;
+        grid.appendChild(card);
+      }
+    }
+    load();
+  </script>
+</body>
+</html>

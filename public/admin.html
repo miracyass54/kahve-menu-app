@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Kahve Durağı — Mutfak Ekranı</title>
+<link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div class="admin">
+    <div class="admin-head">
+      <p class="eyebrow">Kahve Durağı</p>
+      <h1 class="serif">Mutfak Ekranı</h1>
+      <p class="admin-sub">Sipariş bir masada gönderildiği an burada görünür.</p>
+    </div>
+    <div class="cols" id="cols"></div>
+    <a class="back-link" href="/index.html">Masa QR kodlarına dön</a>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const STATUSES = ['Yeni', 'Hazırlanıyor', 'Hazır'];
+    function tl(n) { return `₺${n.toFixed(0)}`; }
+
+    async function loadOrders() {
+      const orders = await fetch('/api/orders').then(r => r.json());
+      render(orders);
+    }
+
+    function render(orders) {
+      const cols = document.getElementById('cols');
+      cols.innerHTML = '';
+      STATUSES.forEach(status => {
+        const columnOrders = orders.filter(o => o.status === status);
+        const col = document.createElement('div');
+        col.className = 'col';
+        col.innerHTML = `
+          <div class="col-head">
+            <span class="col-dot col-dot-${status.replace(/ı/g,'i').toLowerCase()}"></span>
+            <p class="col-title">${status}</p>
+            <span class="col-count">${columnOrders.length}</span>
+          </div>
+        `;
+
+        if (columnOrders.length === 0) {
+          col.innerHTML += `<p class="empty-col">Bekleyen sipariş yok</p>`;
+        }
+
+        columnOrders.forEach(order => {
+          const time = new Date(order.createdAt).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+          const lines = order.lines.map(l => `<p class="ticket-line"><b>${l.qty}×</b> ${l.name}</p>`).join('');
+          const ticket = document.createElement('div');
+          ticket.className = 'ticket';
+          ticket.innerHTML = `
+            <div class="ticket-head">
+              <span class="table-badge serif">Masa ${order.tableId}</span>
+              <span class="ticket-time">${time}</span>
+            </div>
+            <div class="ticket-lines">${lines}</div>
+            <p class="ticket-total">Toplam ${tl(order.total)}</p>
+            <button class="btn btn-brass">${status === 'Hazır' ? 'Servis edildi' : (status === 'Yeni' ? 'Hazırlamaya başla' : 'Hazır olarak işaretle')}</button>
+          `;
+          ticket.querySelector('button').onclick = () => advance(order.id, status);
+          col.appendChild(ticket);
+        });
+
+        cols.appendChild(col);
+      });
+    }
+
+    async function advance(orderId, currentStatus) {
+      const idx = STATUSES.indexOf(currentStatus);
+      const nextStatus = idx >= STATUSES.length - 1 ? 'Servis Edildi' : STATUSES[idx + 1];
+      await fetch(`/api/orders/${orderId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: nextStatus }),
+      });
+      loadOrders();
+    }
+
+    const socket = io();
+    socket.on('orders-changed', loadOrders);
+
+    loadOrders();
+  </script>
+</body>
+</html>

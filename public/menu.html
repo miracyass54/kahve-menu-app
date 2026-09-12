@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Kahve Durağı — Menü</title>
+<link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div id="app"></div>
+
+  <script>
+    const params = new URLSearchParams(location.search);
+    const tableId = Number(params.get('masa')) || 1;
+    let MENU = [];
+    let activeCat = null;
+    const cart = {}; // { itemId: qty }
+
+    function tl(n) { return `₺${n.toFixed(0)}`; }
+    function itemById(id) { return MENU.flatMap(c => c.items).find(i => i.id === id); }
+    function cartCount() { return Object.values(cart).reduce((a,b) => a+b, 0); }
+    function cartTotal() {
+      return Object.entries(cart).reduce((sum,[id,qty]) => sum + itemById(id).price*qty, 0);
+    }
+
+    function render() {
+      const app = document.getElementById('app');
+      app.innerHTML = `
+        <div class="customer">
+          <div class="c-header">
+            <p class="table-tag">Masa ${tableId}</p>
+            <h1 class="serif">Kahve Durağı</h1>
+          </div>
+          <div class="tabs" id="tabs"></div>
+          <div class="items" id="items"></div>
+          <a class="back-link" href="/index.html">Diğer masaların QR kodlarına dön</a>
+          ${cartCount() > 0 ? `
+            <div class="cart-bar">
+              <span>Sepet (${cartCount()})<span class="cart-total"> ${tl(cartTotal())}</span></span>
+              <button id="open-sheet">Siparişi gör</button>
+            </div>` : ''}
+        </div>
+      `;
+
+      const tabs = document.getElementById('tabs');
+      MENU.forEach(cat => {
+        const btn = document.createElement('button');
+        btn.className = 'tab' + (cat.id === activeCat ? ' active' : '');
+        btn.textContent = cat.label;
+        btn.onclick = () => { activeCat = cat.id; render(); };
+        tabs.appendChild(btn);
+      });
+
+      const itemsWrap = document.getElementById('items');
+      const cat = MENU.find(c => c.id === activeCat);
+      if (cat) {
+        const title = document.createElement('h2');
+        title.className = 'serif cat-title';
+        title.textContent = cat.label;
+        itemsWrap.appendChild(title);
+
+        cat.items.forEach(item => {
+          const row = document.createElement('div');
+          row.className = 'item';
+          row.innerHTML = `
+            <div>
+              <p class="item-name">${item.name}</p>
+              <p class="item-desc">${item.desc}</p>
+              <p class="item-price">${tl(item.price)}</p>
+            </div>
+            <div class="stepper">
+              ${cart[item.id] > 0 ? `
+                <button class="step-btn minus">−</button>
+                <span class="step-qty">${cart[item.id]}</span>
+              ` : ''}
+              <button class="step-btn add">+</button>
+            </div>
+          `;
+          const minusBtn = row.querySelector('.minus');
+          if (minusBtn) minusBtn.onclick = () => changeQty(item.id, -1);
+          row.querySelector('.add').onclick = () => changeQty(item.id, 1);
+          itemsWrap.appendChild(row);
+        });
+      }
+
+      const openSheetBtn = document.getElementById('open-sheet');
+      if (openSheetBtn) openSheetBtn.onclick = openSheet;
+    }
+
+    function changeQty(itemId, delta) {
+      const next = Math.max(0, (cart[itemId] || 0) + delta);
+      if (next === 0) delete cart[itemId]; else cart[itemId] = next;
+      render();
+    }
+
+    function openSheet() {
+      const backdrop = document.createElement('div');
+      backdrop.className = 'sheet-backdrop';
+      backdrop.onclick = (e) => { if (e.target === backdrop) backdrop.remove(); };
+
+      const lines = Object.entries(cart).map(([id,qty]) => {
+        const item = itemById(id);
+        return `<div class="sheet-line"><span>${qty} × ${item.name}</span><span>${tl(item.price*qty)}</span></div>`;
+      }).join('');
+
+      backdrop.innerHTML = `
+        <div class="sheet">
+          <h2 class="serif">Siparişini onayla</h2>
+          ${lines}
+          <div class="sheet-total"><span>Toplam</span><span>${tl(cartTotal())}</span></div>
+          <div class="sheet-actions">
+            <button class="btn btn-ghost" id="cancel-sheet">Menüye dön</button>
+            <button class="btn btn-brass" id="send-order">Siparişi gönder</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(backdrop);
+      backdrop.querySelector('#cancel-sheet').onclick = () => backdrop.remove();
+      backdrop.querySelector('#send-order').onclick = () => sendOrder(backdrop);
+    }
+
+    async function sendOrder(backdrop) {
+      const items = Object.entries(cart).map(([itemId, qty]) => ({ itemId, qty }));
+      const res = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tableId, items }),
+      });
+      const order = await res.json();
+      backdrop.remove();
+      if (!res.ok) {
+        alert(order.error || 'Sipariş gönderilemedi, tekrar deneyin.');
+        return;
+      }
+      const lineCount = Object.keys(cart).length;
+      const total = cartTotal();
+      Object.keys(cart).forEach(k => delete cart[k]);
+      showConfirmation(lineCount, total);
+    }
+
+    function showConfirmation(lineCount, total) {
+      document.getElementById('app').innerHTML = `
+        <div class="confirm">
+          <div class="check">✓</div>
+          <h2 class="serif">Siparişiniz mutfağa iletildi</h2>
+          <p>Masa ${tableId} için ${lineCount} ürün, toplam ${tl(total)}. Hazır olduğunda masanıza getirilecek.</p>
+          <button class="btn btn-brass" id="back-to-menu" style="width:auto;padding:12px 28px">Menüye dön, başka bir şey ekle</button>
+        </div>
+      `;
+      document.getElementById('back-to-menu').onclick = render;
+    }
+
+    async function init() {
+      MENU = await fetch('/api/menu').then(r => r.json());
+      activeCat = MENU[0].id;
+      render();
+    }
+    init();
+  </script>
+</body>
+</html>
